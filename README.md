@@ -3,6 +3,9 @@ Benchmark Parker point lookup service
 
 ## Install
 
+Download the latest release from the [releases page](https://github.com/ParkerData/parkbench/releases) and decompress it.
+
+Or install it using `go install` if you have Go installed:
 ```shell
 go install github.com/ParkerData/parkbench@latest
 ```
