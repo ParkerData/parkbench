@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/ParkerData/parkbench/pb/parker_pb"
 	"log"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -16,9 +17,11 @@ import (
 
 func main() {
 	// Define CLI options
-	grpcServerAddress := flag.String("grpcServer", "localhost:7275", "gRPC server address")
+	grpcServerAddress := flag.String("grpcAddress", "localhost:7275", "gRPC server address")
+	httpServerAddress := flag.String("httpAddress", "localhost:8250", "http server address")
 	csvFilePath := flag.String("csv", "ids.csv", "Path to the CSV file with a list of IDs")
-	concurrency := flag.Int("concurrency", 64, "Number of concurrent requests")
+	concurrency := flag.Int("concurrency", 20, "Number of concurrent requests")
+	indexColumn := flag.String("idColumn", "id", "id column name")
 	flag.Parse()
 
 	// Read the CSV file
@@ -51,11 +54,13 @@ func main() {
 	println("Randomized of IDs: ", len(ids))
 
 	// Channel to distribute IDs to workers
-	idChan := make(chan string, len(ids))
-	for _, id := range ids {
-		idChan <- id
-	}
-	close(idChan)
+	idChan := make(chan string, 10000)
+	go func() {
+		for _, id := range ids {
+			idChan <- id
+		}
+		close(idChan)
+	}()
 
 	// WaitGroup to wait for all workers to finish
 	var wg sync.WaitGroup
@@ -69,36 +74,14 @@ func main() {
 		go func() {
 			defer wg.Done()
 
-			// Set up a gRPC client
-			conn, err := grpc.Dial(*grpcServerAddress, grpc.WithInsecure())
-			if err != nil {
-				log.Fatalf("Failed to connect to gRPC server: %v", err)
+			if *grpcServerAddress != "" {
+				grpcQueryJob(*grpcServerAddress, idChan, latencyChan)
+			} else if *httpServerAddress != "" {
+				httpQueryJob(*httpServerAddress, *indexColumn, idChan, latencyChan)
+			} else {
+				log.Fatalf("Either gRPC or HTTP server address must be provided")
 			}
-			defer conn.Close()
 
-			client := parker_pb.NewParkerClient(conn)
-
-			for id := range idChan {
-				start := time.Now()
-
-				// Create a LookupRequest
-				request := &parker_pb.LookupRequest{
-					Key: &parker_pb.Key{
-						Kind: &parker_pb.Key_StringValue{
-							StringValue: id,
-						},
-					},
-				}
-
-				// Call the Lookup method
-				_, err := client.Lookup(context.Background(), request)
-				if err != nil {
-					log.Fatalf("Failed to call Lookup: %v", err)
-				}
-
-				latency := time.Since(start)
-				latencyChan <- latency
-			}
 		}()
 	}
 
@@ -129,4 +112,60 @@ func main() {
 	// Wait for all workers to finish
 	wg.Wait()
 	close(latencyChan)
+}
+
+func httpQueryJob(httpServerAddress string, idColumn string, idChan chan string, latencyChan chan time.Duration) {
+
+	for id := range idChan {
+		start := time.Now()
+
+		// send a http request to http://<httpServerAddress>/query?<idColumn>=<id>
+		// and get the response
+		targetUrl := fmt.Sprintf("http://%s/query?%s=%s", httpServerAddress, idColumn, id)
+		req, err := http.NewRequest(http.MethodGet, targetUrl, nil)
+		if err != nil {
+			log.Fatalf("Failed to create HTTP request to %v: %v", targetUrl, err)
+		}
+		_, err = http.DefaultClient.Do(req)
+		if err != nil {
+			log.Fatalf("Failed to send HTTP request to %v: %v", targetUrl, err)
+		}
+
+		latency := time.Since(start)
+		latencyChan <- latency
+	}
+
+}
+
+func grpcQueryJob(grpcServerAddress string, idChan chan string, latencyChan chan time.Duration) {
+	// Set up a gRPC client
+	conn, err := grpc.Dial(grpcServerAddress, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("Failed to connect to gRPC server: %v", err)
+	}
+	defer conn.Close()
+
+	client := parker_pb.NewParkerClient(conn)
+
+	for id := range idChan {
+		start := time.Now()
+
+		// Create a LookupRequest
+		request := &parker_pb.LookupRequest{
+			Key: &parker_pb.Key{
+				Kind: &parker_pb.Key_StringValue{
+					StringValue: id,
+				},
+			},
+		}
+
+		// Call the Lookup method
+		_, err := client.Lookup(context.Background(), request)
+		if err != nil {
+			log.Fatalf("Failed to call Lookup: %v", err)
+		}
+
+		latency := time.Since(start)
+		latencyChan <- latency
+	}
 }
