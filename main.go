@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/ParkerData/parkbench/pb/parker_pb"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +15,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+)
+
+var (
+	httpClient = &http.Client{}
 )
 
 func main() {
@@ -23,6 +29,8 @@ func main() {
 	concurrency := flag.Int("concurrency", 20, "Number of concurrent requests")
 	indexColumn := flag.String("idColumn", "id", "id column name")
 	flag.Parse()
+
+	httpClient.
 
 	// Read the CSV file
 	file, err := os.Open(*csvFilePath)
@@ -128,10 +136,13 @@ func httpQueryJob(httpServerAddress string, idColumn string, idChan chan string,
 		if err != nil {
 			log.Fatalf("Failed to create HTTP request to %v: %v", targetUrl, err)
 		}
-		_, err = http.DefaultClient.Do(req)
+		resp, err = httpClient.Do(req)
 		if err != nil {
 			log.Fatalf("Failed to send HTTP request to %v: %v", targetUrl, err)
 		}
+
+		// read the response body
+		io.ReadAll(resp.Body)
 
 		latency := time.Since(start)
 		latencyChan <- latency
