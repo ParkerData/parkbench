@@ -143,6 +143,7 @@ func httpQueryJob(httpServerAddress string, idColumn string, idChan chan string,
 
 		// read the response body
 		io.ReadAll(resp.Body)
+		resp.Body.Close()
 
 		latency := time.Since(start)
 		latencyChan <- latency
