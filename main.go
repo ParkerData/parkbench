@@ -17,7 +17,12 @@ import (
 )
 
 var (
-	httpClient = &http.Client{}
+	httpClient = &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConns:        1024,
+			MaxIdleConnsPerHost: 1024,
+		},
+	}
 )
 
 func main() {
@@ -27,12 +32,9 @@ func main() {
 	csvFilePath := flag.String("csv", "ids.csv", "Path to the CSV file with a list of IDs")
 	concurrency := flag.Int("concurrency", 20, "Number of concurrent requests")
 	indexColumn := flag.String("idColumn", "id", "id column name")
-	flag.Parse()
+	repeatTimes := flag.Int("repeat", 1, "Number of times to repeat the test")
 
-	httpClient.Transport = &http.Transport{
-		MaxIdleConns:        1024,
-		MaxIdleConnsPerHost: 1024,
-	}
+	flag.Parse()
 
 	// Read the CSV file
 	file, err := os.Open(*csvFilePath)
@@ -49,9 +51,11 @@ func main() {
 
 	// Extract IDs from the first column
 	var ids []string
-	for i, record := range records {
-		if len(record) > 0 && i > 0 {
-			ids = append(ids, record[0])
+	for x := 0; x < *repeatTimes; x++ {
+		for i, record := range records {
+			if len(record) > 0 && i > 0 {
+				ids = append(ids, record[0])
+			}
 		}
 	}
 
