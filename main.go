@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/ParkerData/parkbench/pb/parker_pb"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -30,7 +29,10 @@ func main() {
 	indexColumn := flag.String("idColumn", "id", "id column name")
 	flag.Parse()
 
-	httpClient.
+	httpClient.Transport = &http.Transport{
+		MaxIdleConns:        1024,
+		MaxIdleConnsPerHost: 1024,
+	}
 
 	// Read the CSV file
 	file, err := os.Open(*csvFilePath)
@@ -136,13 +138,13 @@ func httpQueryJob(httpServerAddress string, idColumn string, idChan chan string,
 		if err != nil {
 			log.Fatalf("Failed to create HTTP request to %v: %v", targetUrl, err)
 		}
-		resp, err = httpClient.Do(req)
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			log.Fatalf("Failed to send HTTP request to %v: %v", targetUrl, err)
 		}
 
 		// read the response body
-		io.ReadAll(resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 
 		latency := time.Since(start)
