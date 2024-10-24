@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package parker_server;
+
+option go_package = "pb/parker_pb";
+
+import "common.proto";
+
+//////////////////////////////////////////////////
+
+service Parker {
+
+  /// Gateway => Parker
+  rpc Lookup (LookupRequest) returns (LookupResponse) {
+  }
+
+}
+
+//////////////////////////////////////////////////
+/// Gateway => Parker
+//////////////////////////////////////////////////
+
+message LookupRequest {
+  string account = 1;
+  string table = 2;
+  int64 snapshot = 4; // Optional, in case customers want previous version
+  repeated Partition partitions = 5;
+  Key key = 6;
+  repeated string columns = 7; // projection
+}
+message LookupResponse {
+  int64 snapshot = 1;
+  RecordValue record = 2;
+}
