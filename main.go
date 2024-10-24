@@ -8,6 +8,7 @@ import (
 	"github.com/ParkerData/parkbench/pb/parker_pb"
 	"io"
 	"log"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"sync"
@@ -16,14 +17,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-var (
-	httpClient = &http.Client{
-		Transport: &http.Transport{
-			MaxIdleConns:        1024,
-			MaxIdleConnsPerHost: 1024,
-		},
-	}
-)
+var ()
 
 func main() {
 	// Define CLI options
@@ -60,8 +54,9 @@ func main() {
 	}
 
 	// Randomize the order of IDs
+	total := len(ids)
 	for i := range ids {
-		j := i + int(time.Now().UnixNano())%(len(ids)-i)
+		j := rand.IntN(total)
 		ids[i], ids[j] = ids[j], ids[i]
 	}
 
@@ -132,6 +127,13 @@ func main() {
 
 func httpQueryJob(httpServerAddress string, idColumn string, idChan chan string, latencyChan chan time.Duration) {
 
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConns:        4,
+			MaxIdleConnsPerHost: 4,
+		},
+	}
+
 	for id := range idChan {
 		start := time.Now()
 
@@ -145,6 +147,9 @@ func httpQueryJob(httpServerAddress string, idColumn string, idChan chan string,
 		resp, err := httpClient.Do(req)
 		if err != nil {
 			log.Fatalf("Failed to send HTTP request to %v: %v", targetUrl, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("Failed to get a successful response from %v: %v", targetUrl, resp.Status)
 		}
 
 		// read the response body
