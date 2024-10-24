@@ -17,7 +17,7 @@ import (
 
 func main() {
 	// Define CLI options
-	grpcServerAddress := flag.String("grpcAddress", "localhost:7275", "gRPC server address")
+	// grpcServerAddress := flag.String("grpcAddress", "", "gRPC server address")
 	httpServerAddress := flag.String("httpAddress", "localhost:8250", "http server address")
 	csvFilePath := flag.String("csv", "ids.csv", "Path to the CSV file with a list of IDs")
 	concurrency := flag.Int("concurrency", 20, "Number of concurrent requests")
@@ -74,13 +74,15 @@ func main() {
 		go func() {
 			defer wg.Done()
 
-			if *grpcServerAddress != "" {
-				grpcQueryJob(*grpcServerAddress, idChan, latencyChan)
-			} else if *httpServerAddress != "" {
-				httpQueryJob(*httpServerAddress, *indexColumn, idChan, latencyChan)
-			} else {
-				log.Fatalf("Either gRPC or HTTP server address must be provided")
-			}
+			httpQueryJob(*httpServerAddress, *indexColumn, idChan, latencyChan)
+
+			//if *grpcServerAddress != "" {
+			//	grpcQueryJob(*grpcServerAddress, idChan, latencyChan)
+			//} else if *httpServerAddress != "" {
+			//	httpQueryJob(*httpServerAddress, *indexColumn, idChan, latencyChan)
+			//} else {
+			//	log.Fatalf("Either gRPC or HTTP server address must be provided")
+			//}
 
 		}()
 	}
