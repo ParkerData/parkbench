@@ -43,30 +43,24 @@ func main() {
 		log.Fatalf("Failed to read CSV file: %v", err)
 	}
 
-	// Extract IDs from the first column
-	var ids []string
-	for x := 0; x < *repeatTimes; x++ {
-		for i, record := range records {
-			if len(record) > 0 && i > 0 {
-				ids = append(ids, record[0])
-			}
-		}
-	}
-
-	// Randomize the order of IDs
-	total := len(ids)
-	for i := range ids {
-		j := rand.IntN(total)
-		ids[i], ids[j] = ids[j], ids[i]
-	}
-
-	println("Randomized of IDs: ", len(ids))
+	records = records[1:]
+	println("input csv rows:", len(records))
 
 	// Channel to distribute IDs to workers
 	idChan := make(chan string, 10000)
 	go func() {
-		for _, id := range ids {
-			idChan <- id
+		for x := 0; x < *repeatTimes; x++ {
+
+			// Randomize the order of IDs
+			total := len(records)
+			for i := range records {
+				j := rand.IntN(total)
+				records[i], records[j] = records[j], records[i]
+			}
+
+			for _, record := range records {
+				idChan <- record[0]
+			}
 		}
 		close(idChan)
 	}()
@@ -75,7 +69,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	// Channel to collect latencies
-	latencyChan := make(chan time.Duration, len(ids))
+	latencyChan := make(chan time.Duration, 10000)
 
 	// Start workers
 	for i := 0; i < *concurrency; i++ {
