@@ -1,8 +1,8 @@
 # parkbench
 Benchmark Parker point lookup service
 
-Parker is an ultra-low-latency and high-concurrency point lookup service for Parquet files.
-You can test it out using the docker image https://hub.docker.com/r/parkerdb/parker-preview
+Parker is an ultra-low-latency and high-concurrency point query service for Parquet files.
+You can test the point query API on your own parquet files with this docker image https://hub.docker.com/r/parkerdb/parker-preview
 
 This is the tool to benchmark the lookup performance.
 
