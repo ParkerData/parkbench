@@ -21,13 +21,15 @@ go install github.com/ParkerData/parkbench@latest
 $ parkbench -h
 Usage of parkbench:
   -concurrency int
-    	Number of concurrent requests (default 20)
+        Number of concurrent requests (default 20)
   -csv string
-    	Path to the CSV file with a list of IDs (default "ids.csv")
+        Path to the CSV file with a list of IDs (default "ids.csv")
   -httpAddress string
-    	http server address (default "localhost:8250")
+        http server address (default "localhost:8250")
   -idColumn string
-    	id column name (default "id")
+        id column name (default "id")
+  -repeat int
+        Number of times to repeat the test (default 1)
 
 
 $ parkbench -httpAddress localhost:8250 -csv ids.csv -idColumn id -concurrency 20
