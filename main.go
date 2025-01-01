@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/ParkerData/parkbench/pb/parker_pb"
+	"google.golang.org/grpc/metadata"
 	"io"
 	"log"
 	"math/rand/v2"
@@ -21,12 +22,13 @@ var ()
 
 func main() {
 	// Define CLI options
-	// grpcServerAddress := flag.String("grpcAddress", "", "gRPC server address")
+	grpcServerAddress := flag.String("grpcAddress", "", "gRPC server address")
 	httpServerAddress := flag.String("httpAddress", "localhost:8250", "http server address")
 	csvFilePath := flag.String("csv", "ids.csv", "Path to the CSV file with a list of IDs")
 	concurrency := flag.Int("concurrency", 20, "Number of concurrent requests")
 	indexColumn := flag.String("idColumn", "id", "id column name")
 	repeatTimes := flag.Int("repeat", 1, "Number of times to repeat the test")
+	jwtString := flag.String("jwt", "", "JWT token")
 
 	flag.Parse()
 
@@ -77,15 +79,13 @@ func main() {
 		go func() {
 			defer wg.Done()
 
-			httpQueryJob(*httpServerAddress, *indexColumn, idChan, latencyChan)
-
-			//if *grpcServerAddress != "" {
-			//	grpcQueryJob(*grpcServerAddress, idChan, latencyChan)
-			//} else if *httpServerAddress != "" {
-			//	httpQueryJob(*httpServerAddress, *indexColumn, idChan, latencyChan)
-			//} else {
-			//	log.Fatalf("Either gRPC or HTTP server address must be provided")
-			//}
+			if *grpcServerAddress != "" {
+				grpcQueryJob(*grpcServerAddress, *jwtString, idChan, latencyChan)
+			} else if *httpServerAddress != "" {
+				httpQueryJob(*httpServerAddress, *jwtString, *indexColumn, idChan, latencyChan)
+			} else {
+				log.Fatalf("Either gRPC or HTTP server address must be provided")
+			}
 
 		}()
 	}
@@ -119,7 +119,7 @@ func main() {
 	close(latencyChan)
 }
 
-func httpQueryJob(httpServerAddress string, idColumn string, idChan chan string, latencyChan chan time.Duration) {
+func httpQueryJob(httpServerAddress string, jwtString string, idColumn string, idChan chan string, latencyChan chan time.Duration) {
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
@@ -135,6 +135,9 @@ func httpQueryJob(httpServerAddress string, idColumn string, idChan chan string,
 		// and get the response
 		targetUrl := fmt.Sprintf("http://%s/query?%s=%s", httpServerAddress, idColumn, id)
 		req, err := http.NewRequest(http.MethodGet, targetUrl, nil)
+		if jwtString != "" {
+			req.Header["Authorization"] = []string{"Bearer " + jwtString}
+		}
 		if err != nil {
 			log.Fatalf("Failed to create HTTP request to %v: %v", targetUrl, err)
 		}
@@ -156,7 +159,7 @@ func httpQueryJob(httpServerAddress string, idColumn string, idChan chan string,
 
 }
 
-func grpcQueryJob(grpcServerAddress string, idChan chan string, latencyChan chan time.Duration) {
+func grpcQueryJob(grpcServerAddress string, jwtString string, idChan chan string, latencyChan chan time.Duration) {
 	// Set up a gRPC client
 	conn, err := grpc.Dial(grpcServerAddress, grpc.WithInsecure())
 	if err != nil {
@@ -165,6 +168,11 @@ func grpcQueryJob(grpcServerAddress string, idChan chan string, latencyChan chan
 	defer conn.Close()
 
 	client := parker_pb.NewParkerClient(conn)
+
+	ctx := context.Background()
+	if jwtString != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+jwtString)
+	}
 
 	for id := range idChan {
 		start := time.Now()
@@ -179,7 +187,7 @@ func grpcQueryJob(grpcServerAddress string, idChan chan string, latencyChan chan
 		}
 
 		// Call the Lookup method
-		_, err := client.Lookup(context.Background(), request)
+		_, err := client.Lookup(ctx, request)
 		if err != nil {
 			log.Fatalf("Failed to call Lookup: %v", err)
 		}
