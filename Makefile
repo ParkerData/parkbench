@@ -9,7 +9,6 @@ setup:
 	python3 -m venv .venv
 	. .venv/bin/activate && pip install -r requirements.txt
 	. .venv/bin/activate && pip install grpcio-tools
-	. .venv/bin/activate && python3 -m grpc_tools.protoc -I./protos --python_out=pb --grpc_python_out=pb ./protos/gateway.proto
 
 # Generate Python code from protobuf definitions (requires setup to be run first)
 generate-python:

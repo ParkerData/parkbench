@@ -7,25 +7,18 @@ A benchmarking tool for testing the performance of Parker services, available in
 - Go 1.21 or later (for Go benchmarks)
 - Python 3.8+ (for Python benchmarks)
 - Make
-- Protocol Buffers compiler (protoc)
 
 ## Installation
 
 1. Clone the repository
-2. Install dependencies and generate protobuf files:
+2. For Python, install dependencies and generate protobuf files:
 ```bash
-# Install Python dependencies and generate Python protobuf files
 make setup
-
-# Generate Go protobuf files (if using Go benchmarks)
-make generate-go
+# The `make setup` command will:
+# - Create a Python virtual environment
+# - Install required Python packages
+# - Install gRPC tools
 ```
-
-The `make setup` command will:
-- Create a Python virtual environment
-- Install required Python packages
-- Install gRPC tools
-- Generate Python protobuf files
 
 ## Configuration
 
