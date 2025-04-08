@@ -33,11 +33,11 @@ Create a `config.json` file with the following structure:
 
 ```json
 {
+    "grpcAddress": "aws-us-west-1-001.api.parkerdb.com:50051",
+    "httpAddress": "https://aws-us-west-1-001.api.parkerdb.com",
     "csv": "test_data.csv",
     "account": "your_account",
     "table": "your_table",
-    "httpAddress": "http://localhost:4284",
-    "grpcAddress": "localhost:4283",
     "jwt": "your_jwt_token",
     "concurrency": 10,
     "repeat": 1
