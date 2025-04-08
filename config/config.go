@@ -1,10 +1,11 @@
-package main
+package config
 
 import (
 	"encoding/json"
 	"os"
 )
 
+// Config represents the benchmark configuration
 type Config struct {
 	GRPCServerAddress string `json:"grpcAddress"`
 	HTTPServerAddress string `json:"httpAddress"`
@@ -16,6 +17,7 @@ type Config struct {
 	TableName         string `json:"table"`
 }
 
+// LoadConfig loads the configuration from a JSON file
 func LoadConfig(configPath string) (*Config, error) {
 	file, err := os.Open(configPath)
 	if err != nil {

@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	parker_pb "github.com/ParkerData/parker/pb/protos"
-	"google.golang.org/grpc/credentials" // Import the credentials package
-	"google.golang.org/grpc/metadata"
-
+	"github.com/ParkerData/parkbench/config"
+	parker_pb "github.com/ParkerData/parkbench/pb/parker_pb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 )
 
 func main() {
@@ -28,7 +28,7 @@ func main() {
 	flag.Parse()
 
 	// Load configuration
-	config, err := LoadConfig(*configPath)
+	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
@@ -48,7 +48,7 @@ func main() {
 	}
 
 	// Read the CSV file
-	file, err := os.Open(config.CSVFilePath)
+	file, err := os.Open(cfg.CSVFilePath)
 	if err != nil {
 		log.Fatalf("Failed to open CSV file: %v", err)
 	}
@@ -65,8 +65,7 @@ func main() {
 	// Channel to distribute IDs to workers
 	idChan := make(chan string, 10000)
 	go func() {
-		for x := 0; x < config.RepeatTimes; x++ {
-
+		for x := 0; x < cfg.RepeatTimes; x++ {
 			// Randomize the order of IDs
 			total := len(records)
 			for i := range records {
@@ -88,21 +87,21 @@ func main() {
 	latencyChan := make(chan time.Duration, 10000)
 
 	// Start workers
-	for i := 0; i < config.Concurrency; i++ {
+	for i := 0; i < cfg.Concurrency; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
 			if *useGRPC {
-				if config.GRPCServerAddress == "" {
+				if cfg.GRPCServerAddress == "" {
 					log.Fatalf("gRPC server address not provided in config")
 				}
-				grpcQueryJob(config, idChan, latencyChan)
+				grpcQueryJob(cfg, idChan, latencyChan)
 			} else {
-				if config.HTTPServerAddress == "" {
+				if cfg.HTTPServerAddress == "" {
 					log.Fatalf("HTTP server address not provided in config")
 				}
-				httpQueryJob(httpClient, config.HTTPServerAddress, config.JWTString, idChan, latencyChan, config)
+				httpQueryJob(httpClient, cfg.HTTPServerAddress, cfg.JWTString, idChan, latencyChan, cfg)
 			}
 		}()
 	}
@@ -147,12 +146,12 @@ func tracedRequestContext() context.Context {
 	})
 }
 
-func httpQueryJob(httpClient *http.Client, httpServerAddress string, jwtString string, idChan chan string, latencyChan chan time.Duration, config *Config) {
+func httpQueryJob(httpClient *http.Client, httpServerAddress string, jwtString string, idChan chan string, latencyChan chan time.Duration, cfg *config.Config) {
 	count := 0
 	for id := range idChan {
 		start := time.Now()
 
-		targetUrl := fmt.Sprintf("%s/find/%s/%s/%s", httpServerAddress, config.AccountName, config.TableName, id)
+		targetUrl := fmt.Sprintf("%s/find/%s/%s/%s", httpServerAddress, cfg.AccountName, cfg.TableName, id)
 		req, err := http.NewRequestWithContext(tracedRequestContext(), http.MethodGet, targetUrl, nil)
 		if err != nil {
 			log.Fatalf("Failed to create HTTP request to %v: %v", targetUrl, err)
@@ -183,12 +182,12 @@ func httpQueryJob(httpClient *http.Client, httpServerAddress string, jwtString s
 	}
 }
 
-func grpcQueryJob(config *Config, idChan chan string, latencyChan chan time.Duration) {
+func grpcQueryJob(cfg *config.Config, idChan chan string, latencyChan chan time.Duration) {
 	// Set up a secure gRPC client using TLS
 	creds := credentials.NewClientTLSFromCert(nil, "") // nil means use system's trusted CAs
 
 	// Set up a gRPC client
-	conn, err := grpc.NewClient(config.GRPCServerAddress, grpc.WithTransportCredentials(creds))
+	conn, err := grpc.NewClient(cfg.GRPCServerAddress, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		log.Fatalf("Failed to connect to gRPC server: %v", err)
 	}
@@ -197,8 +196,8 @@ func grpcQueryJob(config *Config, idChan chan string, latencyChan chan time.Dura
 	client := parker_pb.NewGatewayClient(conn)
 
 	ctx := context.Background()
-	if config.JWTString != "" {
-		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+config.JWTString)
+	if cfg.JWTString != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+cfg.JWTString)
 	}
 
 	for id := range idChan {
@@ -206,8 +205,8 @@ func grpcQueryJob(config *Config, idChan chan string, latencyChan chan time.Dura
 
 		// Create a FindRequest
 		request := &parker_pb.FindRequest{
-			Account: config.AccountName,
-			Table:   config.TableName,
+			Account: cfg.AccountName,
+			Table:   cfg.TableName,
 			Key: &parker_pb.Key{
 				Kind: &parker_pb.Key_StringValue{
 					StringValue: id,
