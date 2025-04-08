@@ -10,6 +10,8 @@ import grpc
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+import pb.gateway_pb2 as parker_pb
+import pb.gateway_pb2_grpc as gateway_pb2_grpc
 
 class BenchmarkConfig:
     def __init__(self, config_path: str):
@@ -65,8 +67,39 @@ def http_query_job(config: BenchmarkConfig, ids: List[str], results: BenchmarkRe
             raise
 
 def grpc_query_job(config: BenchmarkConfig, ids: List[str], results: BenchmarkResults):
-    # TODO: Implement gRPC client
-    pass
+    # Set up a secure gRPC client using TLS
+    channel = grpc.secure_channel(
+        config.grpc_server_address,
+        grpc.ssl_channel_credentials()
+    )
+    
+    # Create the gRPC client
+    client = gateway_pb2_grpc.GatewayStub(channel)
+    
+    # Set up metadata with JWT if provided
+    metadata = []
+    if config.jwt_string:
+        metadata.append(('authorization', f'Bearer {config.jwt_string}'))
+    
+    for id in ids:
+        start = time.time()
+        try:
+            # Create the FindRequest
+            request = parker_pb.FindRequest(
+                account=config.account_name,
+                table=config.table_name,
+                key=parker_pb.Key(string_value=id)
+            )
+            
+            # Call the Find method
+            response = client.Find(request, metadata=metadata)
+            
+            # Record latency
+            latency = time.time() - start
+            results.add_latency(latency)
+        except Exception as e:
+            print(f"Error: {e}")
+            raise
 
 def run_benchmark(config: BenchmarkConfig, use_grpc: bool = False):
     try:
