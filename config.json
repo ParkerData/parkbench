@@ -1,0 +1,10 @@
+{
+    "grpcAddress": "aws-us-west-1-001.api.parkerdb.com:50051",
+    "httpAddress": "https://aws-us-west-1-001.api.parkerdb.com",
+    "csv_file_path": "test_data.csv",
+    "account_name": "your_account",
+    "table_name": "your_table",
+    "jwt_string": "your_jwt_token",
+    "concurrency": 10,
+    "repeat_times": 1
+} 

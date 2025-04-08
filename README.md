@@ -1,38 +1,111 @@
-# parkbench
-Benchmark Parker point lookup service
+# Parker Benchmark Tool
 
-Parker is an ultra-low-latency and high-concurrency point query service for Parquet files.
-You can test the point query API on your own parquet files with this docker image https://hub.docker.com/r/parkerdb/parker-preview
+A benchmarking tool for testing the performance of Parker services, available in both Python and Go implementations. The tool supports both HTTP and gRPC protocols and provides detailed performance metrics.
 
-This repo is for a tool to benchmark the point query performance.
+## Prerequisites
 
-## Install
+- Go 1.21 or later (for Go benchmarks)
+- Python 3.8+ (for Python benchmarks)
+- Make
 
-Download the latest release from the [releases page](https://github.com/ParkerData/parkbench/releases) and decompress it.
+## Installation
 
-Or install it using `go install` if you have Go installed:
-```shell
-go install github.com/ParkerData/parkbench@latest
+1. Clone the repository
+2. Install dependencies:
+```bash
+# Install Python dependencies
+make setup
+
+# Generate Go protobuf files
+make generate-go
 ```
 
-## Run
+## Configuration
 
-```shell
-$ parkbench -h
-Usage of parkbench:
-  -concurrency int
-        Number of concurrent requests (default 20)
-  -csv string
-        Path to the CSV file with a list of IDs (default "ids.csv")
-  -httpAddress string
-        http server address (default "localhost:8250")
-  -idColumn string
-        id column name (default "id")
-  -repeat int
-        Number of times to repeat the test (default 1)
+Create a `config.json` file with the following structure:
 
+```json
+{
+    "csv": "test_data.csv",
+    "account": "your_account",
+    "table": "your_table",
+    "httpAddress": "http://localhost:4284",
+    "grpcAddress": "localhost:4283",
+    "jwt": "your_jwt_token",
+    "concurrency": 10,
+    "repeat": 1
+}
+```
 
-$ parkbench -httpAddress localhost:8250 -csv ids.csv -idColumn id -concurrency 20
-...
+### Configuration Options
+
+- `csv`: Path to the CSV file containing IDs to query
+- `account`: Your Parker account name
+- `table`: The table to query
+- `httpAddress`: HTTP server address (for HTTP protocol)
+- `grpcAddress`: gRPC server address (for gRPC protocol)
+- `jwt`: JWT token for authentication (optional)
+- `concurrency`: Number of concurrent workers
+- `repeat`: Number of times to repeat the benchmark
+
+## Usage
+
+The benchmark tool can be run using Make targets:
+
+### Python Implementation
+
+```bash
+# Run HTTP benchmark using Python
+make benchmark-http
+
+# Run gRPC benchmark using Python
+make benchmark-grpc
+```
+
+### Go Implementation
+
+```bash
+# Run HTTP benchmark using Go
+make benchmark-go-http
+
+# Run gRPC benchmark using Go
+make benchmark-go-grpc
+```
+
+## Output
+
+The tool will display:
+- Total number of requests processed
+- Average latency
+- P50, P95, and P99 latency percentiles
+- Requests per second
+
+## Example Output
 
 ```
+Running benchmark: 100%|██████████| 10/10 [00:05<00:00, 1.98it/s]
+
+Benchmark Results:
+Total Requests: 1000
+Average Latency: 50.23ms
+P50 Latency: 45.67ms
+P95 Latency: 75.89ms
+P99 Latency: 89.12ms
+Requests per Second: 198.45
+```
+
+## Development
+
+### Building
+
+```bash
+# Generate Go protobuf files
+make generate-go
+
+# Clean generated files
+make clean
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
