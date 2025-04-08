@@ -10,8 +10,8 @@ import grpc
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-import pb.gateway_pb2 as parker_pb
-import pb.gateway_pb2_grpc as gateway_pb2_grpc
+from pb.gateway_pb2 import FindRequest, Key
+from pb.gateway_pb2_grpc import GatewayStub
 
 class BenchmarkConfig:
     def __init__(self, config_path: str):
@@ -74,7 +74,7 @@ def grpc_query_job(config: BenchmarkConfig, ids: List[str], results: BenchmarkRe
     )
     
     # Create the gRPC client
-    client = gateway_pb2_grpc.GatewayStub(channel)
+    client = GatewayStub(channel)
     
     # Set up metadata with JWT if provided
     metadata = []
@@ -85,10 +85,10 @@ def grpc_query_job(config: BenchmarkConfig, ids: List[str], results: BenchmarkRe
         start = time.time()
         try:
             # Create the FindRequest
-            request = parker_pb.FindRequest(
+            request = FindRequest(
                 account=config.account_name,
                 table=config.table_name,
-                key=parker_pb.Key(string_value=id)
+                key=Key(string_value=id)
             )
             
             # Call the Find method

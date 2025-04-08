@@ -9,18 +9,19 @@ setup:
 	python3 -m venv .venv
 	. .venv/bin/activate && pip install -r requirements.txt
 	. .venv/bin/activate && pip install grpcio-tools
+	PYTHONPATH=. . .venv/bin/activate && python3 -m grpc_tools.protoc -I./protos --python_out=pb --grpc_python_out=pb ./protos/gateway.proto
 
 # Generate Python code from protobuf definitions (requires setup to be run first)
 generate-python:
-	. .venv/bin/activate && python3 -m grpc_tools.protoc -I./protos --python_out=pb --grpc_python_out=pb ./protos/gateway.proto
+	PYTHONPATH=. . .venv/bin/activate && python3 -m grpc_tools.protoc -I./protos --python_out=pb --grpc_python_out=pb ./protos/gateway.proto
 
 # Run Python HTTP benchmark
 benchmark-http:
-	. .venv/bin/activate && python benchmark.py --config config.json
+	PYTHONPATH=. . .venv/bin/activate && python benchmark.py --config config.json
 
 # Run Python gRPC benchmark
 benchmark-grpc:
-	. .venv/bin/activate && python benchmark.py --config config.json --grpc
+	PYTHONPATH=. . .venv/bin/activate && python benchmark.py --config config.json --grpc
 
 # Run Go HTTP benchmark
 benchmark-go-http:
@@ -32,7 +33,7 @@ benchmark-go-grpc:
 
 # Clean generated files
 clean:
-	rm -rf pb/*.py
+	rm -rf pb/gateway_pb2*.py
 	rm -rf pb/__pycache__
 	rm -rf pb/*.go
 	rm -rf .venv
