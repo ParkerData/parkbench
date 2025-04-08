@@ -55,57 +55,91 @@ def http_query_job(config: BenchmarkConfig, ids: List[str], results: BenchmarkRe
     for id in ids:
         start = time.time()
         url = f"{config.http_server_address}/find/{config.account_name}/{config.table_name}/{id}"
-        response = session.get(url, headers=headers)
-        response.raise_for_status()
-        latency = time.time() - start
-        results.add_latency(latency)
+        try:
+            response = session.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            latency = time.time() - start
+            results.add_latency(latency)
+        except Exception as e:
+            print(f"Error: {e}")
+            raise
 
 def grpc_query_job(config: BenchmarkConfig, ids: List[str], results: BenchmarkResults):
     # TODO: Implement gRPC client
     pass
 
 def run_benchmark(config: BenchmarkConfig, use_grpc: bool = False):
-    # Read IDs from CSV
-    df = pd.read_csv(config.csv_file_path)
-    ids = df.iloc[:, 0].tolist()
-    
-    # Create results object
-    results = BenchmarkResults()
-    
-    # Calculate batch size for each worker
-    total_ids = len(ids) * config.repeat_times
-    batch_size = total_ids // config.concurrency
-    
-    # Create batches of IDs
-    all_ids = []
-    for _ in range(config.repeat_times):
-        random.shuffle(ids)
-        all_ids.extend(ids)
-    
-    id_batches = [all_ids[i:i + batch_size] for i in range(0, len(all_ids), batch_size)]
-    
-    # Run benchmark
-    with ThreadPoolExecutor(max_workers=config.concurrency) as executor:
-        futures = []
-        for batch in id_batches:
-            if use_grpc:
-                futures.append(executor.submit(grpc_query_job, config, batch, results))
-            else:
-                futures.append(executor.submit(http_query_job, config, batch, results))
+    try:
+        # Read IDs from CSV
+        df = pd.read_csv(config.csv_file_path)
+        ids = df.iloc[:, 0].tolist()
         
-        # Wait for all futures to complete
-        for future in tqdm(futures, desc="Running benchmark"):
-            future.result()
-    
-    # Print results
-    summary = results.get_summary()
-    print("\nBenchmark Results:")
-    print(f"Total Requests: {summary['total_requests']}")
-    print(f"Average Latency: {summary['avg_latency_ms']:.2f}ms")
-    print(f"P50 Latency: {summary['p50_latency_ms']:.2f}ms")
-    print(f"P95 Latency: {summary['p95_latency_ms']:.2f}ms")
-    print(f"P99 Latency: {summary['p99_latency_ms']:.2f}ms")
-    print(f"Requests per Second: {summary['requests_per_second']:.2f}")
+        # Create results object
+        results = BenchmarkResults()
+        
+        # Calculate batch size for each worker
+        total_ids = len(ids) * config.repeat_times
+        batch_size = total_ids // config.concurrency
+        
+        # Create batches of IDs
+        all_ids = []
+        for _ in range(config.repeat_times):
+            random.shuffle(ids)
+            all_ids.extend(ids)
+        
+        id_batches = [all_ids[i:i + batch_size] for i in range(0, len(all_ids), batch_size)]
+        
+        # Start periodic logging
+        stop_logging = False
+        def log_stats():
+            last_time = time.time()
+            last_requests = 0
+            while not stop_logging:
+                time.sleep(1)
+                current_time = time.time()
+                current_requests = results.total_requests
+                elapsed = current_time - last_time
+                if elapsed > 0:
+                    rps = (current_requests - last_requests) / elapsed
+                    if current_requests > 0:
+                        avg_latency = np.mean(results.latencies[-1000:]) * 1000  # Last 1000 requests
+                        print(f"Requests per second: {rps:.0f}, Average latency: {avg_latency:.2f}ms")
+                    last_time = current_time
+                    last_requests = current_requests
+        
+        import threading
+        logging_thread = threading.Thread(target=log_stats)
+        logging_thread.start()
+        
+        # Run benchmark
+        with ThreadPoolExecutor(max_workers=config.concurrency) as executor:
+            futures = []
+            for batch in id_batches:
+                if use_grpc:
+                    futures.append(executor.submit(grpc_query_job, config, batch, results))
+                else:
+                    futures.append(executor.submit(http_query_job, config, batch, results))
+            
+            # Wait for all futures to complete
+            for future in tqdm(futures, desc="Running benchmark"):
+                future.result()
+        
+        # Stop logging thread
+        stop_logging = True
+        logging_thread.join()
+        
+        # Print final results
+        summary = results.get_summary()
+        print("\nBenchmark Results:")
+        print(f"Total Requests: {summary['total_requests']}")
+        print(f"Average Latency: {summary['avg_latency_ms']:.2f}ms")
+        print(f"P50 Latency: {summary['p50_latency_ms']:.2f}ms")
+        print(f"P95 Latency: {summary['p95_latency_ms']:.2f}ms")
+        print(f"P99 Latency: {summary['p99_latency_ms']:.2f}ms")
+        print(f"Requests per Second: {summary['requests_per_second']:.2f}")
+    except Exception as e:
+        print(f"Error: {e}")
+        raise
 
 def main():
     parser = argparse.ArgumentParser(description='Run a benchmark against the Parker service')
